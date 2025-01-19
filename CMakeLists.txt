@@ -78,3 +78,11 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_link_directories(${PROJECT_NAME} PRIVATE "lib")
 target_include_directories(${PROJECT_NAME} PRIVATE "include")
 target_link_libraries(${PROJECT_NAME} PRIVATE glew32.dll glew32.lib glew32s.lib glfw3.lib assimp-vc140-mt.dll assimp-vc140-mt.lib)
+
+set(DLL_SOURCE_PATH "${CMAKE_SOURCE_DIR}/lib/assimp-vc140-mt.dll" "${CMAKE_SOURCE_DIR}/lib/glew32.dll")
+set(DLL_DEST_PATH "${CMAKE_BINARY_DIR}/$<CONFIG>")
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DLL_SOURCE_PATH} ${DLL_DEST_PATH}
+    COMMENT "Copying DLLs to build directory"
+)
