@@ -1,5 +1,5 @@
 #include "LiquidDrawable.h"
-#include "asserts.h"
+
 #include "../Manager/MeshMgr.h"
 
 namespace Renderer

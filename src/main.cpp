@@ -22,9 +22,8 @@ int main(int argc, char *argv[])
 	// initialization.
 	const int width = 1920, height = 1080;
 	std::shared_ptr<RenderDevice> window = RenderDevice::getSingleton();
-	window->initialize("Fluid Simulation", width, height, false);
+	window->initialize("Granular Simulation", width, height, false);
 	std::shared_ptr<RenderSystem> renderSys = window->getRenderSystem();
-	renderSys->setGlowBlur(true);
 
 	// resource loading.
 	MeshMgr::ptr meshMgr = renderSys->getMeshMgr();
@@ -40,7 +39,7 @@ int main(int argc, char *argv[])
 	// textures.
 	unsigned int containerTex = textureMgr->loadTexture2D("cube", ASSERTS_PATH "res/OIP.jpg");
 	unsigned int fluidTex = textureMgr->loadTexture2D("blue", ASSERTS_PATH "res/blue.png");
-	//renderSys->setSkyDome(ASSERTS_PATH "res/skybox/", ".jpg");
+	//renderSys->setSkyDome("./res/skybox/", ".jpg");
 	// meshes.
 	unsigned int planeMesh = meshMgr->loadMesh(new Plane(1.0, 1.0));
 	unsigned int containerMesh = meshMgr->loadMesh(new Container(1.0f, 1.0f, 1.0f));
@@ -54,9 +53,9 @@ int main(int argc, char *argv[])
 	renderSys->createSunLightCamera(glm::vec3(0.0f), -600.0f, +600.0f,
 		-600.0f, +600.0f, 1.0f, 500.0f);
 
-	StaticModelDrawable *island = new StaticModelDrawable(blinnPhongShader,
-		ASSERTS_PATH "res/Small_Tropical_Island/Small_Tropical_Island.obj");
-	renderSys->addDrawable(island);
+	//StaticModelDrawable *island = new StaticModelDrawable(blinnPhongShader,
+	//	"./res/Small_Tropical_Island/Small_Tropical_Island.obj");
+	//renderSys->addDrawable(island);
 
 	glm::vec3 scaleSize = glm::vec3(80.0f, 40.0f, 40.0f);
 	glm::vec3 center = glm::vec3(0, scaleSize.y/2 + 2.0f, 150.0f);
@@ -137,6 +136,7 @@ int main(int argc, char *argv[])
 	particleDrawable->setParticleRadius(fluid->getSimulateParams().m_particleRadius);
 	particleDrawable->getTransformation()->setTranslation(center);
 	particleDrawable->setParticleVBO(fluid->getPosVBO(), fluid->getSimulateParams().m_numParticles);
+	particleDrawable->setPhaseVBO(fluid->getPhaseVBO(), fluid->getSimulateParams().m_numParticles);
 
 	liquidDrawable->setParticleRadius(fluid->getSimulateParams().m_particleRadius);
 	liquidDrawable->getTransformation()->setTranslation(center);
@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
 	bool wallMove = false;
 	float wallMoveSpeed = +10.0f;
 	float curWallPos = -40.0f;
-	bool fluidRendering = true;
+	bool fluidRendering = false;
 	int curDemo = 0, item = 0;
 	int curBlur = 0, blurItem = 0;
 	const char *blurItems[] = { "Bilateral Blur", "Bilateral Seperate Blur", "Gaussian Blur", "Curvature Flow Blur" };
@@ -195,8 +195,10 @@ int main(int argc, char *argv[])
 			ImGui::Combo("Fluid Demo", &item, demoItems, 3);
 			ImGui::Combo("Blur Algorithm", &blurItem, blurItems, 4);
 			ImGui::Text("Particle Number: %d", fluid->getSimulateParams().m_numParticles);
-			ImGui::Checkbox("use viscosity", &fluid->getSimulateParams().m_useXSPH);
-			ImGui::SliderFloat("Viscosity", &fluid->getSimulateParams().m_viscosity, 0.0f, 0.2f);
+			/*ImGui::SliderFloat("Viscosity", &fluid->getSimulateParams().m_viscosity, 0.0f, 1.0f);
+			ImGui::SliderFloat("Vorticity", &fluid->getSimulateParams().m_vorticity, 0.0f, 0.5f);*/
+			ImGui::SliderFloat("stiffness", &fluid->getSimulateParams().m_stiffness, 0.0f, 1.f);
+			ImGui::SliderInt("Iterations", (int*)&fluid->getSimulateParams().m_maxIterNums, 1, 15);
 			if (ImGui::Button("Wall Movement"))
 				wallMove = !wallMove;
 			if (ImGui::Button("Fluid Rendering"))
@@ -231,6 +233,7 @@ int main(int argc, char *argv[])
 			container[0]->getTransformation()->setTranslation(glm::vec3(curWallPos, center.y, center.z));
 			fluid = demo.getSimulator();
 			particleDrawable->setParticleVBO(fluid->getPosVBO(), fluid->getSimulateParams().m_numParticles);
+			particleDrawable->setPhaseVBO(fluid->getPhaseVBO(), fluid->getSimulateParams().m_numParticles);
 			liquidDrawable->setParticleVBO(fluid->getPosVBO(), fluid->getSimulateParams().m_numParticles);
 		}
 

@@ -1,5 +1,5 @@
 #include "DepthBlurFilter.h"
-#include "asserts.h"
+
 #include "../Manager/MeshMgr.h"
 #include "../Manager/Geometry.h"
 #include "../Manager/ShaderMgr.h"

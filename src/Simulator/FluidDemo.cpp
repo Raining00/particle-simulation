@@ -5,6 +5,12 @@
 
 using namespace Simulator;
 
+enum Phase
+{
+	Fluid = 0,
+	Granular = 1
+};
+
 FluidDemo::FluidDemo()
 {
 	m_simulator = nullptr;
@@ -16,6 +22,7 @@ void FluidDemo::fluidDeamBreak(unsigned int gridSize, float length, float radius
 	float spacing = radius * 2.0f;
 	std::vector<float> positions;
 	std::vector<float> velocities;
+	std::vector<float> phase;
 	float jitter = radius * 0.01f;
 	srand(1973);
 
@@ -38,6 +45,7 @@ void FluidDemo::fluidDeamBreak(unsigned int gridSize, float length, float radius
 				velocities.push_back(0.0f);
 				velocities.push_back(0.0f);
 				velocities.push_back(0.0f);
+				phase.push_back(Granular);
 			}
 		}
 	}
@@ -47,6 +55,7 @@ void FluidDemo::fluidDeamBreak(unsigned int gridSize, float length, float radius
 		{ gridSize, gridSize, gridSize }, radius));
 	m_simulator->setParticlePositions(&positions[0], 0, numParticles);
 	m_simulator->setParticleVelocities(&velocities[0], 0, numParticles);
+	m_simulator->setParticlePhasesVBO(&phase[0], 0, numParticles);
 }
 
 void FluidDemo::boxFluidDrop(unsigned int numParticles, unsigned int gridSize, float length, float radius)
@@ -57,6 +66,7 @@ void FluidDemo::boxFluidDrop(unsigned int numParticles, unsigned int gridSize, f
 	unsigned int fluidSize = (int)ceilf(powf((float)numParticles, 1.0f / 3.0f));
 	std::vector<float> positions;
 	std::vector<float> velocities;
+	std::vector<float> phase;
 	length = fluidSize * spacing;
 	float jitter = params.m_particleRadius * 0.01f;
 	srand(1973);
@@ -73,6 +83,7 @@ void FluidDemo::boxFluidDrop(unsigned int numParticles, unsigned int gridSize, f
 					positions.push_back(spacing*y + radius - 0.5f * length + (frand()*2.0f - 1.0f)*jitter);
 					positions.push_back(spacing*z + radius - 0.5f * length + (frand()*2.0f - 1.0f)*jitter);
 					positions.push_back(1.0f);
+					phase.push_back(Granular);
 
 					velocities.push_back(0.0f);
 					velocities.push_back(0.0f);
@@ -84,6 +95,8 @@ void FluidDemo::boxFluidDrop(unsigned int numParticles, unsigned int gridSize, f
 	}
 	m_simulator->setParticlePositions(&positions[0], 0, numParticles);
 	m_simulator->setParticleVelocities(&velocities[0], 0, numParticles);
+	m_simulator->setParticlePhasesVBO(&phase[0], 0, numParticles);
+
 }
 
 void FluidDemo::sphereFluidDrop(unsigned int gridSize, float length, float radius)
@@ -92,10 +105,12 @@ void FluidDemo::sphereFluidDrop(unsigned int gridSize, float length, float radiu
 	float spacing = radius * 2.0f;
 	std::vector<float> positions;
 	std::vector<float> velocities;
+	std::vector<float> phase;
 	float jitter = radius * 0.01f;
 	srand(1973);
 
-	// bottom fluid.
+	// bottom granular. 
+	// phase = 1
 	glm::vec3 bottomFluidSize = glm::vec3(80.0f, 5.0f, 40.0f);
 	glm::ivec3 bottomFluidDim = glm::ivec3(bottomFluidSize.x / spacing,
 		bottomFluidSize.y / spacing, bottomFluidSize.z / spacing);
@@ -108,8 +123,9 @@ void FluidDemo::sphereFluidDrop(unsigned int gridSize, float length, float radiu
 				positions.push_back(spacing*x + radius - 0.5f * bottomFluidSize.x + (frand()*2.0f - 1.0f)*jitter);
 				positions.push_back(spacing*y + radius - 0.5f * 40.0f + (frand()*2.0f - 1.0f)*jitter);
 				positions.push_back(spacing*z + radius - 0.5f * bottomFluidSize.z + (frand()*2.0f - 1.0f)*jitter);
-				positions.push_back(1.0f);
-
+				positions.push_back(1.f);
+				phase.push_back(Granular);
+				
 				velocities.push_back(0.0f);
 				velocities.push_back(0.0f);
 				velocities.push_back(0.0f);
@@ -119,6 +135,7 @@ void FluidDemo::sphereFluidDrop(unsigned int gridSize, float length, float radiu
 	}
 
 	// sphere fluid.
+	// phase(pos.w) = 0
 	float spherRadius = 8.0f;
 	float boxLength = 2.0f * spherRadius;
 	int boxDim = boxLength / spacing;
@@ -137,7 +154,8 @@ void FluidDemo::sphereFluidDrop(unsigned int gridSize, float length, float radiu
 				positions.push_back(dx + radius + (frand()*2.0f - 1.0f)*jitter);
 				positions.push_back(dy + radius + (frand()*2.0f - 1.0f)*jitter);
 				positions.push_back(dz + radius + (frand()*2.0f - 1.0f)*jitter);
-				positions.push_back(1.0f);
+				positions.push_back(1.f);
+				phase.push_back(Granular);
 
 				velocities.push_back(0.0f);
 				velocities.push_back(0.0f);
@@ -152,6 +170,7 @@ void FluidDemo::sphereFluidDrop(unsigned int gridSize, float length, float radiu
 		{ gridSize, gridSize, gridSize }, radius));
 	m_simulator->setParticlePositions(&positions[0], 0, numParticles);
 	m_simulator->setParticleVelocities(&velocities[0], 0, numParticles);
+	m_simulator->setParticlePhasesVBO(&phase[0], 0, numParticles);
 }
 
 void FluidDemo::addSphereFluid(glm::vec3 center, float radius)

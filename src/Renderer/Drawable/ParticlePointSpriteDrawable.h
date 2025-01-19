@@ -12,9 +12,12 @@ namespace Renderer
 		glm::vec3 m_baseColor;
 		float m_particleRadius;
 		bool m_vboCreateBySelf;
+		bool m_phsevboCreateBySelf;
 		unsigned int m_particleTex;
 		unsigned int m_particleVAO;
 		unsigned int m_particleVBO;
+		unsigned int m_phaseVAO;
+		unsigned int m_phaseVBO;
 		unsigned int m_numParticles;
 		unsigned int m_posChannel;
 		ShaderMgr::ptr m_shaderMgr;
@@ -28,7 +31,9 @@ namespace Renderer
 		void setParticleRadius(float radius);
 		void setPositions(std::vector<glm::vec4> &position);
 		void setPositions(std::vector<glm::vec3> &position);
+		void setPhase(std::vector<float> &phase);
 		void setParticleVBO(unsigned int vbo, int numParticles);
+		void setPhaseVBO(unsigned int vbo, int numParticles);
 
 		glm::vec3 &getBaseColor() { return m_baseColor; }
 		unsigned int getParticleVBO()const { return m_particleVBO; }

@@ -1,5 +1,4 @@
 #include "RenderSystem.h"
-#include "asserts.h"
 
 #include "Camera/FPSCamera.h"
 #include "Camera/TPSCamera.h"
@@ -47,7 +46,7 @@ namespace Renderer
 		if (m_skyDome != nullptr)
 			return;
 		unsigned int skyboxShader = m_shaderMgr->loadShader("skybox",
-			ASSERTS_PATH"glsl/skybox.vert", ASSERTS_PATH"glsl/skybox.frag");
+			ASSERTS_PATH "glsl/skybox.vert", ASSERTS_PATH "glsl/skybox.frag");
 		unsigned int cubeTex = m_textureMgr->loadTextureCube("skybox", path, pFix);
 		unsigned int mesh = m_meshMgr->loadMesh(new Sphere(1.0f, 10, 10));
 		m_skyDome = make_shared<SkyDome>(skyboxShader);

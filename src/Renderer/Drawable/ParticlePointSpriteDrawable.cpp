@@ -1,7 +1,7 @@
 #include "ParticlePointSpriteDrawable.h"
 
 #include "../RenderDevice.h"
-#include "asserts.h"
+
 #include <iostream>
 
 namespace Renderer
@@ -11,9 +11,11 @@ namespace Renderer
 	{
 		// initialize
 		m_particleVBO = 0;
+		m_phaseVBO = 0;
 		m_numParticles = 0;
 		m_particleRadius = 1.0f;
 		m_vboCreateBySelf = false;
+		m_phsevboCreateBySelf = false;
 		m_baseColor = glm::vec3(1.0f, 0.6f, 0.3f);
 		glGenVertexArrays(1, &m_particleVAO);
 
@@ -29,6 +31,8 @@ namespace Renderer
 	{
 		if(m_vboCreateBySelf && m_particleVBO != 0)
 			glDeleteBuffers(1, &m_particleVBO);
+		if (m_phsevboCreateBySelf && m_phaseVBO != 0)
+			glDeleteBuffers(1, &m_phaseVBO);
 		glDeleteVertexArrays(1, &m_particleVAO);
 	}
 
@@ -73,6 +77,23 @@ namespace Renderer
 		glBindVertexArray(0);
 	}
 
+	void ParticlePointSpriteDrawable::setPhase(std::vector<float>& phase)
+	{
+		m_phsevboCreateBySelf = true;
+		int phase_size = phase.size();
+		if (m_phaseVBO == 0)
+			glGenBuffers(1, &m_phaseVBO);
+		glBindVertexArray(m_phaseVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, m_phaseVBO);
+		glBufferData(GL_ARRAY_BUFFER, phase_size * sizeof(unsigned int),
+						&phase[0], GL_STATIC_DRAW);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(unsigned int),
+						static_cast<void*>(0));
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+	}
+
 	void ParticlePointSpriteDrawable::setParticleVBO(unsigned int vbo, int numParticles)
 	{
 		m_vboCreateBySelf = false;
@@ -84,6 +105,19 @@ namespace Renderer
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, m_posChannel, GL_FLOAT, GL_FALSE, m_posChannel * sizeof(float),
 			static_cast<void*>(0));
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+	}
+
+	void ParticlePointSpriteDrawable::setPhaseVBO(unsigned int vbo, int numParticles)
+	{
+		m_phsevboCreateBySelf = false;
+		m_phaseVBO = vbo;
+
+		glBindVertexArray(m_particleVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, m_phaseVBO);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(float), static_cast<void*>(0));
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 	}

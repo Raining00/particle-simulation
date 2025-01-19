@@ -18,10 +18,15 @@ uniform float pointSize;
 uniform mat4 projectMatrix;
 
 in vec3 eyeSpacePos;
+in float phase;
 
 void main(){
-	fragColor = vec4(baseColor, 1.0f);
-	
+	// default color.
+	if(phase == 0.0)
+		fragColor = vec4(baseColor, 1.0f);
+	else
+		fragColor = vec4(0.93, 0.79, 0.69, 1.0f);
+
 	vec3 normal;
 	normal.xy = gl_PointCoord.xy * vec2(2.0, -2.0) + vec2(-1.0,1.0);
 	float mag = dot(normal.xy, normal.xy);

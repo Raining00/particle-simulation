@@ -1,7 +1,7 @@
 #include "Voxelization.h"
 #include "Manager/ShaderMgr.h"
 #include "Camera/FPSCamera.h"
-#include "asserts.h"
+
 #include <iostream>
 #include <algorithm>
 

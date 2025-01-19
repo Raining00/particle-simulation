@@ -1,5 +1,5 @@
 #include "ParticleInstanceDrawable.h"
-#include "asserts.h"
+
 #include "../Manager/MeshMgr.h"
 #include "../Manager/ShaderMgr.h"
 #include "../Manager/TextureMgr.h"

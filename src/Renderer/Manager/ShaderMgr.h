@@ -2,6 +2,7 @@
 
 #include <map>
 #include <vector>
+#include"asserts.h"
 
 #include "Shader.h"
 #include "Singleton.h"

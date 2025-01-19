@@ -5,6 +5,7 @@
 #include "thrust/sort.h"
 #include "thrust/tuple.h"
 #include "thrust/functional.h"
+
 #include "FluidKernel.cuh"
 
 void getLastCudaError(const char * errorMessage)
@@ -44,16 +45,18 @@ void sortParticles(
 	unsigned int numParticles,
 	float *devicePos,
 	float *deviceVel,
-	float *devicePredictedPos
+	float *devicePredictedPos,
+	float* particlePhase
 )
 {
 	thrust::device_ptr<float4> ptrPos((float4*)devicePos);
 	thrust::device_ptr<float4> ptrVel((float4*)deviceVel);
 	thrust::device_ptr<float4> ptrPredictedPos((float4*)devicePredictedPos);
+	thrust::device_ptr<float> ptrPhase(particlePhase);
 	thrust::sort_by_key(
 		thrust::device_ptr<unsigned int>(deviceGridParticleHash),
 		thrust::device_ptr<unsigned int>(deviceGridParticleHash + numParticles),
-		thrust::make_zip_iterator(thrust::make_tuple(ptrPos, ptrVel, ptrPredictedPos)));
+		thrust::make_zip_iterator(thrust::make_tuple(ptrPos, ptrVel, ptrPredictedPos, ptrPhase)));
 }
 
 void findCellRange(
@@ -82,6 +85,7 @@ void fluidAdvection(
 	float4 *position,
 	float4 *velocity,
 	float4 *predictedPos,
+	float* particlePhase,
 	float deltaTime,
 	unsigned int numParticles)
 {
@@ -89,10 +93,11 @@ void fluidAdvection(
 	numThreads = 256;
 	numBlocks = (numParticles % numThreads != 0) ? (numParticles / numThreads + 1) : (numParticles / numThreads);
 	
-	advect<< < numBlocks, numThreads >> > (
+	advect << < numBlocks, numThreads >> > (
 		position,
 		velocity,
 		predictedPos,
+		particlePhase,
 		deltaTime,
 		numParticles);
 	cudaDeviceSynchronize();
@@ -103,6 +108,7 @@ void densityConstraint(
 	float4 *velocity,
 	float3 *deltaPos,
 	float4 *predictedPos,
+	float  *particlePhase,
 	unsigned int *cellStart,
 	unsigned int *cellEnd,
 	unsigned int *gridParticleHash,
@@ -117,6 +123,7 @@ void densityConstraint(
 	calcLagrangeMultiplier << <numBlocks, numThreads >> > (
 		predictedPos,
 		velocity,
+		particlePhase,
 		cellStart,
 		cellEnd,
 		gridParticleHash,
@@ -130,6 +137,7 @@ void densityConstraint(
 		predictedPos,
 		velocity,
 		deltaPos,
+		particlePhase,
 		cellStart,
 		cellEnd,
 		gridParticleHash,
@@ -146,6 +154,34 @@ void densityConstraint(
 		numParticles);
 	getLastCudaError("addDeltaPosition");
 	//cudaDeviceSynchronize();
+}
+
+void solveDistanceConstrain(
+	float4* postion,
+	float4* velocity,
+	float3* deltaPos,
+	float4* predictedPos,
+	float*  particlePhase,
+	unsigned int* cellStart,
+	unsigned int* cellEnd,
+	unsigned int* gridParticleHash,
+	unsigned int numParticles,
+	unsigned int numCells
+)
+{
+	unsigned int numThreads, numBlocks;
+	numThreads = 256;
+	numBlocks = (numParticles % numThreads != 0) ? (numParticles / numThreads + 1) : (numParticles / numThreads);
+
+	distanceConstrain<< <numBlocks, numThreads >> >(predictedPos, deltaPos, particlePhase,cellStart, cellEnd, gridParticleHash, numParticles, numCells);
+	getLastCudaError("distanceConstrain");
+
+	addDeltaPosition << <numBlocks, numThreads >> > (
+		predictedPos,
+		deltaPos,
+		numParticles);
+	getLastCudaError("addDeltaPosition");
+
 }
 
 void updateVelAndPos(
@@ -165,20 +201,4 @@ void updateVelAndPos(
 		1.0f / deltaTime,
 		numParticles);
 	//cudaDeviceSynchronize();
-}
-
-void applyXSPHViscosity(
-	float4 *velocity,
-	float4 *position,
-	unsigned int *cellStart,
-	unsigned int *cellEnd,
-	unsigned int *gridParticleHash,
-	unsigned int numParticles)
-{
-	unsigned int numThreads, numBlocks;
-	numThreads = 256;
-	numBlocks = (numParticles % numThreads != 0) ? (numParticles / numThreads + 1) : (numParticles / numThreads);
-
-	applyXSPH << <numBlocks, numThreads >> > (position, velocity, cellStart, cellEnd, gridParticleHash, numParticles);
-	getLastCudaError("applyXSPHViscosity");
 }

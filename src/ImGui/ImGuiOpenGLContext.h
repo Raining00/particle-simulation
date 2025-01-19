@@ -4,7 +4,7 @@
  * @Project: Zero
  * @Brief: ImGuiиообнд
  * @Copy Author: YangCong
- //* @Date: 2019-02-18
+ * @Date: 2019-02-18
  ********************************/
 #include "imgui.h"
 #include <memory>

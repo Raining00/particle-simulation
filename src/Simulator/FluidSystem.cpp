@@ -18,7 +18,9 @@ extern void sortParticles(
 	unsigned int numParticles,
 	float *devicePos,
 	float *deviceVel,
-	float *devicePredictedPos);
+	float *devicePredictedPos,
+	float* particlePhase
+	);
 extern void findCellRange(
 	unsigned int *cellStart,
 	unsigned int *cellEnd,
@@ -29,6 +31,7 @@ extern void fluidAdvection(
 	float4 *position,
 	float4 *velocity,
 	float4 *predictedPos,
+	float  *particlePhase,
 	float deltaTime,
 	unsigned int numParticles);
 extern void densityConstraint(
@@ -36,6 +39,7 @@ extern void densityConstraint(
 	float4 *velocity,
 	float3 *deltaPos,
 	float4 *predictedPos,
+	float *particlePhase,
 	unsigned int *cellStart,
 	unsigned int *cellEnd,
 	unsigned int *gridParticleHash,
@@ -47,13 +51,18 @@ extern void updateVelAndPos(
 	float4 *predictedPos,
 	float deltaTime,
 	unsigned int numParticles);
-extern void applyXSPHViscosity(
-	float4 *velocity,
-	float4 *position,
-	unsigned int *cellStart,
-	unsigned int *cellEnd,
-	unsigned int *gridParticleHash,
-	unsigned int numParticles);
+extern void solveDistanceConstrain(
+	float4* postion,
+	float4* velocity,
+	float3* deltaPos,
+	float4* predictedPos,
+	float*  particlePhase,
+	unsigned int* cellStart,
+	unsigned int* cellEnd,
+	unsigned int* gridParticleHash,
+	unsigned int numParticles,
+	unsigned int numCells
+);
 
 namespace Simulator
 {
@@ -78,11 +87,14 @@ namespace Simulator
 		m_params.m_sphRadius = 4.0 * radius;
 		m_params.m_sphRadiusSquared = m_params.m_sphRadius * m_params.m_sphRadius;
 
+		m_params.m_damp = 0.5;
+
 		// lagrange multiplier eps.
 		m_params.m_lambdaEps = 1000.0f;
 		// vorticity force coff.
+		m_params.m_vorticity = 0.001f;
 		// viscosity force coff.
-		m_params.m_viscosity = 0.01f;
+		m_params.m_viscosity = 0.001f;
 
 		// left boundary wall.
 		m_params.m_leftWall = -40.0f;
@@ -95,12 +107,18 @@ namespace Simulator
 		m_params.m_poly6Coff = 315.0f / (64.0f * M_PI * powf(m_params.m_sphRadius, 9.0));
 		m_params.m_spikyGradCoff = -45.0f / (M_PI * powf(m_params.m_sphRadius, 6.0));
 
-		m_params.m_useXSPH = false;
-
+		// friction coff.
+		m_params.m_stiffness = 0.5;
+		m_params.m_staticFrictonCoeff = 1.0f;
+		m_params.m_dynamicFrictonCoeff = 0.8f;
+		m_params.m_stackHeightCoeff = -2.f;
+		m_params.m_staticFrictThreshold = m_params.m_staticFrictonCoeff * m_params.m_particleRadius * 2.f;
+		m_params.m_dynamicFrictThreshold = m_params.m_dynamicFrictonCoeff * m_params.m_particleRadius * 2.f;
+		m_params.m_sleepThreshold = 0.02f;
 		// grid cells.
 		float cellSize = m_params.m_sphRadius;
 		m_params.m_cellSize = make_float3(cellSize, cellSize, cellSize);
-		m_params.m_gravity = make_float3(0.0f, -9.80f, 0.0f);
+		m_params.m_gravity = make_float3(0.0f, -9.8f, 0.0f);
 		m_params.m_worldOrigin = { -42.0f,-22.0f,-22.0f };
 
 		m_params.m_oneDivWPoly6 = 1.0f / (m_params.m_poly6Coff *
@@ -126,6 +144,9 @@ namespace Simulator
 		cudaGraphicsMapResources(1, &m_cudaPosVBORes, 0);
 		cudaGraphicsResourceGetMappedPointer((void**)&m_devicePos, &numBytes, m_cudaPosVBORes);
 		
+		cudaGraphicsMapResources(1, &m_cudaPhaseVBORes, 0);
+		cudaGraphicsResourceGetMappedPointer((void**)&m_devicePhase, &numBytes, m_cudaPhaseVBORes);
+
 		// update constants
 		setParameters(&m_params);
 
@@ -135,6 +156,7 @@ namespace Simulator
 				(float4*)m_devicePos,
 				(float4*)m_deviceVel,
 				(float4*)m_devicePredictedPos,
+				m_devicePhase,
 				deltaTime,
 				m_params.m_numParticles);
 			getLastCudaError("fluidAdvection");
@@ -156,7 +178,9 @@ namespace Simulator
 				m_params.m_numParticles,
 				m_devicePos,
 				m_deviceVel,
-				m_devicePredictedPos);
+				m_devicePredictedPos,
+				m_devicePhase
+				);
 			getLastCudaError("sortParticles");
 
 			// find start index and end index of each cell.
@@ -178,11 +202,23 @@ namespace Simulator
 				(float4*)m_deviceVel,
 				(float3*)m_deviceDeltaPos,
 				(float4*)m_devicePredictedPos,
+				m_devicePhase,
 				m_deviceCellStart,
 				m_deviceCellEnd,
 				m_deviceGridParticleHash,
 				m_params.m_numParticles,
 				m_params.m_numGridCells);
+			//solveDistanceConstrain(
+			//	(float4*)m_devicePos,
+			//	(float4*)m_deviceVel,
+			//	(float3*)m_deviceDeltaPos,
+			//	(float4*)m_devicePredictedPos,
+			//	m_devicePhase,
+			//	m_deviceCellStart,
+			//	m_deviceCellEnd,
+			//	m_deviceGridParticleHash,
+			//	m_params.m_numParticles,
+			//	m_params.m_numGridCells);
 			++iter;
 		}
 
@@ -196,20 +232,8 @@ namespace Simulator
 				m_params.m_numParticles);
 		}
 
-		//// apply XSPH viscosity.
-		{
-			if(m_params.m_useXSPH)
-				applyXSPHViscosity(
-					(float4*)m_deviceVel,
-					(float4*)m_devicePos,
-					m_deviceCellStart,
-					m_deviceCellEnd,
-					m_deviceGridParticleHash,
-					m_params.m_numParticles
-				);
-		}
-
 		cudaGraphicsUnmapResources(1, &m_cudaPosVBORes, 0);
+		cudaGraphicsUnmapResources(1, &m_cudaPhaseVBORes, 0);
 	}
 
 	void FluidSystem::setResetDensity(const float & value)
@@ -234,6 +258,17 @@ namespace Simulator
 		cudaMemcpy((char*)m_deviceVel + start * 4 * sizeof(float), data, nums * 4 * sizeof(float),
 			cudaMemcpyHostToDevice);
 		getLastCudaError("setParticleVelocities");
+	}
+
+	void FluidSystem::setParticlePhasesVBO(const float* data, int start, int nums)
+	{
+		cudaGraphicsUnregisterResource(m_cudaPhaseVBORes);
+		getLastCudaError("setParticlePhasesVBO.cudaGraphicsUnregisterResource");
+		glBindBuffer(GL_ARRAY_BUFFER, m_phaseVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, start * sizeof(float), nums * sizeof(float), data);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		cudaGraphicsGLRegisterBuffer(&m_cudaPhaseVBORes, m_phaseVBO, cudaGraphicsMapFlagsNone);
+		getLastCudaError("setParticlePhasesVBO.cudaGraphicsGLRegisterBuffer");
 	}
 
 	void FluidSystem::addParticles(const std::vector<float>& pos, const std::vector<float>& vel, unsigned int num)
@@ -264,6 +299,16 @@ namespace Simulator
 			fprintf(stderr, "WARNING: Pixel Buffer Object allocation failed!\n");
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		cudaGraphicsGLRegisterBuffer(&m_cudaPosVBORes, m_posVBO, cudaGraphicsMapFlagsNone);
+		getLastCudaError("cudaGraphicsGLRegisterBuffer");
+
+		glGenBuffers(1, &m_phaseVBO);
+		glBindBuffer(GL_ARRAY_BUFFER, m_phaseVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(unsigned int) * m_params.m_numParticles, 0, GL_DYNAMIC_DRAW);
+		glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, (GLint *)&size);
+		if ((unsigned)size != sizeof(unsigned int) * m_params.m_numParticles)
+			fprintf(stderr, "WARNING: Pixel Buffer Object allocation failed!\n");
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		cudaGraphicsGLRegisterBuffer(&m_cudaPhaseVBORes, m_phaseVBO, cudaGraphicsMapFlagsNone);
 		getLastCudaError("cudaGraphicsGLRegisterBuffer");
 
 		// allocation.

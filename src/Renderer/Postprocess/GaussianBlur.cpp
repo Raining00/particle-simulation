@@ -1,5 +1,5 @@
 #include "GaussianBlur.h"
-#include "asserts.h"
+
 #include "../Manager/ShaderMgr.h"
 #include "../Manager/Geometry.h"
 #include "../Manager/MeshMgr.h"

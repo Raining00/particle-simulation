@@ -17,7 +17,6 @@ public:
 	void fluidDeamBreak(unsigned int gridSize, float length, float radius);
 	void boxFluidDrop(unsigned int numParticles, unsigned int gridSize, float length, float radius);
 	void sphereFluidDrop(unsigned int gridSize, float length, float radius);
-
 	void addSphereFluid(glm::vec3 center, float radius);
 
 private:
